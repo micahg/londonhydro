@@ -24,7 +24,7 @@ import pandas
 
 LOG_FORMAT = '%(asctime)-15s [%(funcName)s] %(message)s'
 
-CSV_FILE = '/tmp/londonhydro.csv'
+CSV_FILE = 'londonhydro.csv'
 LOGIN_URL = 'https://iamapi-dot-lh-myaccount-prod.appspot.com/iam/api/login'
 USAGE_URL_FMT = 'https://api-dot-lh-myaccount-prod.appspot.com/api/v1/greenButton/E{}/downloadData'
 SMTP_SERVER = 'smtp.gmail.com'
@@ -74,12 +74,13 @@ def get_usage_data(account, token_type, token_value, start_ts, end_ts):
     """
     Download usage data in CSV format.
     """
+    now = int(datetime.now().timestamp() * 1000)
     params = {
-        'startDate': start_ts * 1000000,
-        'endDate': end_ts * 1000000,
+        'startDate': start_ts * 1000,
+        'endDate': end_ts * 1000,
         'greenButton': 'true',
         'fmt': 'text/csv',
-        'ck': '1660772144033'}
+        'ck': now}
     headers = {
       'Authorization': f'Bearer {token_value}',
       'Accept': 'text/csv'
@@ -199,7 +200,7 @@ def __main__():
     logging.info('Emailing stats...')
 
     if config['gmail'] and config['token']:
-        send_notification(stats, args.gmail, args.token)
+        send_notification(stats, config['gmail'], config['token'])
     else:
         logging.info('Not emailing...')
 
