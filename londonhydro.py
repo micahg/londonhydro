@@ -75,13 +75,13 @@ def get_usage_data(account, token_type, token_value, start_ts, end_ts):
     Download usage data in CSV format.
     """
     params = {
-        'startDate': start_ts * 1000,
-        'endDate': end_ts * 1000,
+        'startDate': start_ts * 1000000,
+        'endDate': end_ts * 1000000,
         'greenButton': 'true',
         'fmt': 'text/csv',
         'ck': '1660772144033'}
     headers = {
-      'Authorization': f'{token_type} {token_value}',
+      'Authorization': f'Bearer {token_value}',
       'Accept': 'text/csv'
     }
     url = USAGE_URL_FMT.format(account)
@@ -177,31 +177,28 @@ def __main__():
     parser = ArgumentParser()
     parser.add_argument('-d', '--debug', action='store_true', dest='debug',
                         help='debug logging')
-    parser.add_argument('-e', '--electrical', action='store', dest='electrical', required=True,
-                        help='London Hydro electrical account number')
-    parser.add_argument('-u', '--username', action='store', dest='username', required=True,
-                        help='London Hydro username')
-    parser.add_argument('-p', '--password', action='store', dest='password', required=True,
-                        help='London Hydro password')
-    parser.add_argument('-g', '--gmail', action='store', dest='gmail',
-                        help='GMail address to send mail from')
-    parser.add_argument('-t', '--token', action='store', dest='token',
-                        help='GMail SMTP token')
     args = parser.parse_args()
 
     # Initialize Logs
-    log_level = logging.DEBUG if args.debug else logging.INFO
+    log_level = logging.DEBUG if args.debug else logging.WARNING
     logging.basicConfig(format=LOG_FORMAT, level=log_level)
 
-    (tok_t, tok) = login(args.username, args.password)
+    try:
+        with open('config.json', 'r', encoding="utf-8") as file:
+            config = json.load(file)
+    except Exception as err:
+        logging.error('Unable to load config: %s', err)
+        sys.exit(1)
+
+    (tok_t, tok) = login(config['username'], config['password'])
     (start, end) = get_start_end()
-    get_usage_data(args.electrical, tok_t, tok, start, end)
+    get_usage_data(config['electrical'], tok_t, tok, start, end)
     data_frame = load_csv()
     data_frame = trim_dataframe(data_frame, start, end)
     stats = get_stats(data_frame)
     logging.info('Emailing stats...')
 
-    if args.gmail and args.token:
+    if config['gmail'] and config['token']:
         send_notification(stats, args.gmail, args.token)
     else:
         logging.info('Not emailing...')
