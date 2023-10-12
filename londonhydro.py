@@ -122,6 +122,8 @@ def load_csv():
     dframe['end'] = dframe[['end']].apply(lambda x: datetime.strptime(x[0], '%Y/%m/%d %H:%M').timestamp(), axis=1)
     kwh = dframe.columns[2]
     dframe[kwh] = dframe[[kwh]].apply(lambda x: float(x[0]), axis=1)
+    cost = dframe.columns[3]
+    dframe[cost] = dframe[[cost]].apply(lambda x: float(x[0]), axis=1)
     return dframe
 
 
@@ -133,6 +135,8 @@ def get_stats(dframe):
     max_value = max_kwh[column]
     max_start = datetime.fromtimestamp(max_kwh[dframe.columns[0]]).isoformat()
     max_end = datetime.fromtimestamp(max_kwh[dframe.columns[1]]).isoformat()
+    column = dframe.columns[3]
+    cost = dframe[column].sum()
     stats = {
         'average': avg_kwh,
         'total': total_kwh,
@@ -140,7 +144,8 @@ def get_stats(dframe):
             'start': max_start,
             'end': max_end,
             'value': max_value
-        }
+        },
+        'cost': cost
     }
     return stats
 
@@ -153,14 +158,15 @@ def trim_dataframe(untrimmed, start_ts, end_ts):
     return start_trim[start_trim['end'] <= end_ts]
 
 
-def send_notification(stats, gmail, token):
+def send_notification(stats, gmail, token, recipients):
     subject = 'London Hydro Daily Usage'
     avg = '{:.2f}'.format(stats['average'])
     maxm = '{:.2f}'.format(stats['max']['value'])
     start = stats['max']['start']
     end = stats['max']['end']
     total = '{:.2f}'.format(stats['total'])
-    body = f'Average Usage: {avg}kW\nMaximum Usage: {maxm}kW ({start} - {end})\nTotal Usage: {total} kWh'
+    cost =  '{:.2f}'.format(stats['cost'])
+    body = f'Total Cost: ${cost}\nAverage Usage: {avg}kW\nMaximum Usage: {maxm}kW ({start} - {end})\nTotal Usage: {total} kWh'
 
     msg = 'Subject: {}\n\n{}'.format(subject, body)
 
@@ -168,7 +174,7 @@ def send_notification(stats, gmail, token):
     server.ehlo()
     server.starttls()
     server.login(gmail, token)
-    server.sendmail(f'{gmail}@gmail.com', 'micahgalizia@gmail.com', msg)
+    server.sendmail(f'{gmail}@gmail.com', recipients, msg)
     server.quit()
     logging.info('EMail sent')
     pass
@@ -199,10 +205,10 @@ def __main__():
     stats = get_stats(data_frame)
     logging.info('Emailing stats...')
 
-    if config['gmail'] and config['token']:
-        send_notification(stats, config['gmail'], config['token'])
+    if config['gmail'] and config['token'] and config['recipients']:
+        send_notification(stats, config['gmail'], config['token'], config['recipients'])
     else:
-        logging.info('Not emailing...')
+        logging.error('Not emailing...')
 
 if __name__ == '__main__':
     __main__()
